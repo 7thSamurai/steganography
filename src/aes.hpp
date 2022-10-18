@@ -8,7 +8,7 @@ public:
     // Note: Never use the same IV with the same key
     AES(const std::uint8_t *key, const std::uint8_t *iv);
 
-	// All data must be padded to be a multiple of 16-bytes. Try #PKCS7
+    // All data must be padded to be a multiple of 16-bytes. Try #PKCS7
     void cbc_encrypt(void *data, std::size_t size, void *result);
     void cbc_decrypt(void *data, std::size_t size, void *result);
 

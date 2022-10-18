@@ -88,7 +88,7 @@ AES::AES(const std::uint8_t *key, const std::uint8_t *iv) {
 }
 
 void AES::cbc_encrypt(void *data, std::size_t size, void *result) {
-	assert(size % block_len == 0);
+    assert(size % block_len == 0);
     auto in  = static_cast<std::uint8_t*>(data);
     auto out = static_cast<std::uint8_t*>(result);
     std::uint8_t *iv = this->iv;
@@ -106,7 +106,7 @@ void AES::cbc_encrypt(void *data, std::size_t size, void *result) {
 }
 
 void AES::cbc_decrypt(void *data, std::size_t size, void *result) {
-	assert(size % block_len == 0);
+    assert(size % block_len == 0);
     auto in  = static_cast<std::uint8_t*>(data);
     auto out = static_cast<std::uint8_t*>(result);
     std::uint8_t *iv = this->iv;
