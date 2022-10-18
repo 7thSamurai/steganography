@@ -1,5 +1,5 @@
 #include "sha256.hpp"
-#include "hide.hpp"
+#include "utils.hpp"
 
 #include <sstream>
 #include <iomanip>
