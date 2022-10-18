@@ -11,7 +11,7 @@ bool Image::load(const std::string &path) {
     int x, y, n = 4;
 
     auto *buffer = stbi_load(path.c_str(), &x, &y, &n, n);
-    if (!image)
+    if (!buffer)
         return false;
 
     image = std::make_unique<std::uint8_t[]>(x * y * 4);
@@ -30,8 +30,8 @@ bool Image::save(const std::string &path) {
     return result != 0;
 }
 
-void Image::encode(const std::uint8_t *data, std::size_t size, EncodingLevel level) {
-    auto image = this->image.get();
+void Image::encode(const std::uint8_t *data, std::size_t size, EncodingLevel level, std::size_t offset) {
+    auto image = this->image.get() + offset;
 
     if (level == EncodingLevel::Low) {
         for (auto i = 0; i < size; i++, image += 8) {
@@ -71,9 +71,9 @@ void Image::encode(const std::uint8_t *data, std::size_t size, EncodingLevel lev
     }
 }
 
-std::unique_ptr<std::uint8_t[]> Image::decode(std::size_t size, EncodingLevel level) {
+std::unique_ptr<std::uint8_t[]> Image::decode(std::size_t size, EncodingLevel level, std::size_t offset) {
     auto data  = std::make_unique<std::uint8_t[]>(size);
-    auto image = this->image.get();
+    auto image = this->image.get() + offset;
 
     if (level == EncodingLevel::Low) {
         for (auto i = 0; i < size; i++, image += 8) {
