@@ -2,6 +2,7 @@
 
 #include <string>
 #include <sstream>
+#include <iomanip>
 
 inline std::string data_size(std::size_t size) {
     std::stringstream ss;
