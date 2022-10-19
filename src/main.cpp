@@ -17,6 +17,8 @@
 #define KEY_ROUNDS 20000
 #define LEVEL Image::EncodingLevel::Low
 
+namespace fs = std::filesystem;
+
 // 64 bytes
 struct Header {
     // std::uint8_t salt[16];
@@ -33,7 +35,11 @@ struct Header {
 };
 static_assert(sizeof(Header) == 64);
 
-namespace fs = std::filesystem;
+const char *level_to_str[3] = {
+    "Low (Default)",
+    "Medium",
+    "High"
+};
 
 int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std::string &input, Image::EncodingLevel level) {
     // Open the data file
@@ -43,6 +49,9 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
         return -1;
     }
 
+    std::cout << "* Image size: " << image.w() << "x" << image.h() << " pixels" << std::endl;
+    std::cout << "* Encoding level: " << level_to_str[static_cast<int>(level)] << std::endl;
+
     // Find the data and padded-data size
     std::size_t size = file.tellg();
     std::size_t padded_size = size + 1; // At least one byte of padding
@@ -51,6 +60,12 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 
     // Find the maximum possible size for the file
     unsigned int max_size = image.w()*image.h()*4/Image::encoded_size(1, level) - Image::encoded_size(sizeof(Header)+32, Image::EncodingLevel::Low); // FIXME
+
+    std::cout << "* Max embed size: " << data_size(max_size) << std::endl;
+    std::cout << "* Embed size: " << data_size(size) << std::endl;
+    std::cout << "* Encrypted embed size: " << data_size(padded_size) << std::endl;
+
+    // Make sure that it isn't too big
     if (padded_size > max_size) {
         std::cout << "ERROR: Data-File too big, maximum possible size: " << (max_size / 1024) << " KiB" << std::endl;
         return -1;
@@ -75,6 +90,8 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     // Calculate a hash of the data
     CRC32 crc;
     crc.update(padded_data, size);
+
+    std::cout << "* Generated CRC32 checksum" << std::endl;
 
     // Copy the header information
     Header header;
@@ -105,6 +122,8 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     std::uint8_t key[32];
     pbkdf2_hmac_sha256(password.data(), password.size(), salt, sizeof(salt), key, sizeof(key), KEY_ROUNDS);
 
+    std::cout << "* Generated encryption key with PBKDF2-HMAC-SHA-256 (" << KEY_ROUNDS << " rounds)" << std::endl;
+
     // Encrypt the header
     AES aes(key, iv);
     auto encrypted_header = new std::uint8_t[sizeof(header)];
@@ -114,17 +133,23 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     auto encrypted_data = new std::uint8_t[padded_size];
     aes.cbc_encrypt(padded_data, padded_size, encrypted_data);
 
+    std::cout << "* Encrypted embed with AES-256-CBC" << std::endl;
+
     // Encode the data
     image.encode(salt, 16, level);
     image.encode(iv, 16, level, Image::encoded_size(16, Image::EncodingLevel::Low));
     image.encode(encrypted_header, sizeof(Header), level, Image::encoded_size(32, Image::EncodingLevel::Low));
     image.encode(encrypted_data, padded_size, level, offset);
 
+    std::cout << "* Embeded " << input << " into image" << std::endl;
+
     // Save the encoded image
     if (!image.save("output.png")) {
         std::cout << "Unable to save image!" << std::endl;
         return false;
     }
+
+    std::cout << "* Sucessfully wrote to " << "output.png" << std::endl;
 
     delete[] padded_data;
     delete[] encrypted_data;
@@ -134,6 +159,8 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 }
 
 int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
+    std::cout << "* Image size: " << image.w() << "x" << image.h() << " pixels" << std::endl;
+
     // Extract the Salt and IV
     auto salt = image.decode(16, Image::EncodingLevel::Low);
     auto iv   = image.decode(16, Image::EncodingLevel::Low, Image::encoded_size(16, Image::EncodingLevel::Low));
@@ -141,6 +168,8 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
     // Generate the key
     std::uint8_t key[32];
     pbkdf2_hmac_sha256(password.data(), password.size(), salt.get(), 16, key, sizeof(key), KEY_ROUNDS);
+
+    std::cout << "* Generated decryption key with PBKDF2-HMAC-SHA-256 (" << KEY_ROUNDS << " rounds)" << std::endl;
 
     // Extract the header
     auto encrypted_header = image.decode(sizeof(Header), Image::EncodingLevel::Low, Image::encoded_size(32, Image::EncodingLevel::Low));
@@ -171,6 +200,9 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
         }
     }
 
+    std::cout << "* Sucessfully decrypted header" << std::endl;
+    std::cout << "* File signatures match" << std::endl;
+
     // Copy the name, accounting for the fact that there might be no null-terminator
     std::string name;
     if (header.name[sizeof(header.name)-1])
@@ -178,16 +210,25 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
     else
         name = std::string(reinterpret_cast<char*>(header.name));
 
+    std::cout << "* Detected embed " << name << std::endl;
+    std::cout << "* Encoding level: " << level_to_str[header.level] << std::endl;
+
     // Decode the data
     auto encrypted_data = image.decode(header.size, level, header.offset);
+
+    std::cout << "* Encrypted embed size: " << data_size(header.size) << std::endl;
 
     // Decrypt the data
     auto padded_data = new std::uint8_t[header.size];
     aes.cbc_decrypt(encrypted_data.get(), header.size, padded_data);
 
+    std::cout << "* Successfully decrypted the embed" << std::endl;
+
     // Find how much padding to strip
     std::uint8_t left = padded_data[header.size - 1];
     std::size_t size  = header.size - left;
+
+    std::cout << "* Decrypted embed size: " << data_size(size) << std::endl;
 
     // Calculate the CRC32 hash
     CRC32 crc;
@@ -198,6 +239,8 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
         std::cout << "ERROR: File is corrupted!" << std::endl;
         return -1;
     }
+
+    std::cout << "* CRC32 checksum matches" << std::endl;
 
     // Open the output file
     std::string output = "out - " + name;
@@ -213,7 +256,7 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
 
     delete[] padded_data;
 
-    std::cout << "Successfully extracted '" << header.name << "' (" << data_size(header.size) << ")" << std::endl;
+    std::cout << "Successfully wrote to " << output << std::endl;
 
     return 0;
 }
@@ -259,16 +302,12 @@ int main(int argc, char **argv) {
 
     // Encode
     if (mode == "encode" && argc == 4) {
-        std::cout << "Encoding..." << std::endl;
-
         if (encode(image, password, argv[3], LEVEL) < 0)
             return 1;
     }
 
     // Decode
     else if (mode == "decode" && argc == 3) {
-        std::cout << "Decoding..." << std::endl;
-
         if (decode(image, password) < 0)
             return 1;
     }
