@@ -48,6 +48,13 @@ Password: 1234
 
 ## Building
 
+```
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release ..
+$ make -j 4
+```
+
 ## Usage
 
 ## Theory Of Operation
