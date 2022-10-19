@@ -16,7 +16,7 @@ Password: 1234
 * Generated CRC32 checksum
 * Generated encryption key with PBKDF2-HMAC-SHA-256 (20000 rounds)
 * Encrypted embed with AES-256-CBC
-* Embeded jekyll_and_hyde.zip into image
+* Embedded jekyll_and_hyde.zip into image
 * Sucessfully wrote to output.png
 ```
 
@@ -43,7 +43,7 @@ Password: 1234
 * Successfully decrypted the embed
 * Decrypted embed size: 61.77 KiB
 * CRC32 checksum matches
-Successfully wrote to out - jekyll_and_hyde.zip
+* Successfully wrote to out - jekyll_and_hyde.zip
 ```
 
 ## Building
