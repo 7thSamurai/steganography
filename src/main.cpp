@@ -141,7 +141,7 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     image.encode(encrypted_header, sizeof(Header), level, Image::encoded_size(32, Image::EncodingLevel::Low));
     image.encode(encrypted_data, padded_size, level, offset);
 
-    std::cout << "* Embeded " << input << " into image" << std::endl;
+    std::cout << "* Embeded " << name << " into image" << std::endl;
 
     // Save the encoded image
     if (!image.save("output.png")) {
