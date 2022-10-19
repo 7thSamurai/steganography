@@ -1,7 +1,7 @@
 # Image Steganography Tool
 
-Simple C++ Steganography tool that first encrypts files using AES, and then proceeds to hide them 
-insde images using Least-Significant-Bit encoding.
+Simple C++ **Encryption** and **Steganography** tool that uses Password-Protected-Encryption to secure a file's contents, and then proceeds to embed it 
+insde an image's pixel-data using Least-Significant-Bit encoding.
 
 ## Encoding
 
@@ -22,11 +22,11 @@ Password: 1234
 
 Original image:
 
-![Original image](/data/orig.png)
+![Original image](data/orig.png)
 
 Image with embedded ZIP containg the entire contents of the book "Dr Jekyll and Mr Hyde":
 
-![Image with embed](/data/output.png)
+![Image with embed](data/output.png)
 
 ## Decoding
 
@@ -57,7 +57,44 @@ $ make -j 4
 
 ## Usage
 
+```
+./steganography
+
+Usage:
+  ./steganography encode  [IMAGE PATH] [DATA FILE]
+  ./steganography decode  [IMAGE PATH]
+```
+
 ## Theory Of Operation
+
+### Encoding
+
+The program operates by first randomly generating a *128-bit Password Salt* and a *128-bit AES Initialization Vector* by reading binary data from **/dev/urandom**.
+It then uses that *Password Salt* as a parameter in generating an encryption key, by using **PBKDF2-HMAC-SHA-256** on a user inputted string.
+A **CRC32** hash of the file to embed is then calculated, and stored in the header to act as a checksum for the validity of the data.
+It then pads the binary data of the file to embed using the **PKCS #7** algorithm, followed by actually encrypting both the header and
+the padded data, with **AES-256** in **CBC Mode**, using the previously generated *Initialization Vector*.
+Now the data is actually encoded inside the image by first picking a random offset, and then going through each bit of data and storing it 
+inside the actual image pixel data, which it accomplishes by setting the *Least-Significant-Bit* of each channel byte of each pixel.
+
+### Decoding
+
+The decoding process works exactly the same as the encoding process previously described above, just in reverse. 
+The only difference is that for decoding, after the program attempts to extract and decrypt the data, it compares some of the information in the header section 
+in an attempt to validate the extraction process. The header fields which are compared are: The 4 byte file signature custom to this program, and the 
+**CRC32** hash of the decrypted data. 
+If any of these fields do not match to their correct values, the decryption process will fail. This should only happen if the file which you were attempting to 
+decrypt does not actually contain an embed, if the password you entered is wrong, or if the image file was somehow corrupted.
+
+### Detection
+
+While the detection of data being embedded in an image is a trivial task, theoretically there is no way of knowing that it was this program that did it, and theoretically
+there should be no known way to decrypt the data without knowing the password, that is without spending millions of years in the process of doing so.
+
+## Disclaimer
+
+Do not use this program to encrypt and hide important data which you wish to keep away from prying eyes. This is just a simple proof-of-concept program that I made for fun.
+I'm no cryptographer. I'm just a hobbyist, use at your own risk.
 
 ## Copyright
 
