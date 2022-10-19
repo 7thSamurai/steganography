@@ -26,7 +26,7 @@ Original image:
 
 Image with embedded ZIP containg the entire contents of the book "Dr Jekyll and Mr Hyde":
 
-![Image with embed](/data/out.png)
+![Image with embed](/data/output.png)
 
 ## Decoding
 
