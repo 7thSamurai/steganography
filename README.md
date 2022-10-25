@@ -1,12 +1,12 @@
 # Image Steganography Tool
 
 Simple C++ **Encryption** and **Steganography** tool that uses Password-Protected-Encryption to secure a file's contents, and then proceeds to embed it 
-insde an image's pixel-data using Least-Significant-Bit encoding.
+insde an image's pixel-data using Least-Significant-Bit encoding. For Linux based systems.
 
 ## Encoding
 
 ```
-$ ./steganography encode data/orig.png data/jekyll_and_hyde.zip
+$ ./steganography encode -i data/orig.png -e data/jekyll_and_hyde.zip -o output.png
 Password: 1234
 * Image size: 640x426 pixels
 * Encoding level: Low (Default)
@@ -31,7 +31,7 @@ Image with embedded ZIP containg the entire contents of the book "Dr Jekyll and 
 ## Decoding
 
 ```
-$ ./steganography decode output.png
+$ ./steganography decode -i output.png -o "out - jekyll_and_hyde.zip"
 Password: 1234
 * Image size: 640x426 pixels
 * Generated decryption key with PBKDF2-HMAC-SHA-256 (20000 rounds)
@@ -58,11 +58,46 @@ $ make -j 4
 ## Usage
 
 ```
-./steganography
+Usage: steganography [-h] {decode,encode}
 
-Usage:
-  ./steganography encode  [IMAGE PATH] [DATA FILE]
-  ./steganography decode  [IMAGE PATH]
+Optional arguments:
+  -h, --help   	shows help message and exits
+  -v, --version	prints version information and exits
+
+Subcommands:
+  decode        Decodes and extracts an embed-file from an image
+  encode        Encodes an embed-file into an image
+```
+
+### Encoding
+
+```
+Usage: encode [-h] --input VAR --output VAR --embed VAR [--passwd VAR]
+
+Encodes an embed-file into an image
+
+Optional arguments:
+  -h, --help   	shows help message and exits
+  -v, --version	prints version information and exits
+  -i, --input  	specify the input image. [required]
+  -o, --output 	specify the output image. [required]
+  -e, --embed  	specify the file to embed. [required]
+  -p, --passwd 	specify the encryption password.
+```
+
+### Decoding
+
+```
+Usage: decode [-h] --input VAR [--output VAR] [--passwd VAR]
+
+Decodes and extracts an embed-file from an image
+
+Optional arguments:
+  -h, --help   	shows help message and exits
+  -v, --version	prints version information and exits
+  -i, --input  	specify the input image. [required]
+  -o, --output 	specify the output file. [default: ""]
+  -p, --passwd 	specify the encryption password.
 ```
 
 ## Theory Of Operation
