@@ -13,6 +13,8 @@
 #include "image.hpp"
 #include "utils.hpp"
 
+#include "argparse/argparse.hpp"
+
 #define VERSION 1
 #define KEY_ROUNDS 20000
 #define LEVEL Image::EncodingLevel::Low
@@ -41,7 +43,7 @@ const char *level_to_str[3] = {
     "High"
 };
 
-int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std::string &input, Image::EncodingLevel level) {
+int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std::string &input, const std::string &output, Image::EncodingLevel level) {
     // Open the data file
     std::ifstream file(input, std::ios::in | std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
@@ -144,12 +146,12 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     std::cout << "* Embedded " << name << " into image" << std::endl;
 
     // Save the encoded image
-    if (!image.save("output.png")) {
+    if (!image.save(output)) {
         std::cout << "Unable to save image!" << std::endl;
         return false;
     }
 
-    std::cout << "* Sucessfully wrote to " << "output.png" << std::endl;
+    std::cout << "* Sucessfully wrote to " << output << std::endl;
 
     delete[] padded_data;
     delete[] encrypted_data;
@@ -158,7 +160,7 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     return true;
 }
 
-int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
+int decode(Image &image, const std::array<std::uint8_t, 32> &password, std::string output) {
     std::cout << "* Image size: " << image.w() << "x" << image.h() << " pixels" << std::endl;
 
     // Extract the Salt and IV
@@ -242,8 +244,11 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
 
     std::cout << "* CRC32 checksum matches" << std::endl;
 
+    // If the output path is empty, just use the embedded file name
+    if (output.empty())
+        output = name;
+
     // Open the output file
-    std::string output = "out - " + name;
     std::ofstream file(output, std::ios::out | std::ios::binary);
     if (!file.is_open()) {
         std::cout << "ERROR: Unable to save file '" << output << "'" << std::endl;
@@ -261,60 +266,124 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password) {
     return 0;
 }
 
-void usage(const std::string &argv0) {
-    std::cout << "Usage: " << std::endl;
-    std::cout << "  " << argv0 << " encode " << " [IMAGE PATH] [DATA FILE]" << std::endl;
-    std::cout << "  " << argv0 << " decode " << " [IMAGE PATH]" << std::endl;
-}
-
 int main(int argc, char **argv) {
-    if (argc != 3 && argc != 4) {
-        usage(argv[0]);
+    // Main parser
+    argparse::ArgumentParser program("steganography");
+
+    // Encode subcommand
+    argparse::ArgumentParser encode_command("encode");
+    encode_command.add_description("Encodes an embed-file into an image");
+
+    encode_command.add_argument("-i", "--input")
+        .required()
+        .help("specify the input image.");
+
+    encode_command.add_argument("-o", "--output")
+        .required()
+        .help("specify the output image.");
+
+    encode_command.add_argument("-e", "--embed")
+        .required()
+        .help("specify the file to embed.");
+
+    encode_command.add_argument("-p", "--passwd")
+        .help("specify the encryption password.");
+
+    // Decode subcommand
+    argparse::ArgumentParser decode_command("decode");
+    decode_command.add_description("Decodes and extracts an embed-file from an image");
+
+    decode_command.add_argument("-i", "--input")
+        .required()
+        .help("specify the input image.");
+
+    decode_command.add_argument("-o", "--output")
+        .default_value(std::string(""))
+        .help("specify the output file.");
+
+    decode_command.add_argument("-p", "--passwd")
+        .help("specify the encryption password.");
+
+    // Add the subcommands to the main parser
+    program.add_subparser(encode_command);
+    program.add_subparser(decode_command);
+
+    // Parse the arguments
+    try {
+        program.parse_args(argc, argv);
+    }
+    catch (const std::runtime_error &err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
         return -1;
     }
 
-    // Grab the mode
-    std::string mode = argv[1];
-    std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
+    // Generates the password hash from a user string
+    auto generate_password = [](const argparse::ArgumentParser &parser) -> std::array<std::uint8_t, 32> {
+        // Get the password string
+        std::string str;
+        if (parser.is_used("--passwd")) {
+            str = parser.get<std::string>("--passwd");
+        }
+        else {
+            std::cout << "Password: ";
+            std::cin >> str;
+        }
 
-    if (mode != "encode" && mode != "decode")
-        return -1;
+        // Generate the password hash
+        std::array<std::uint8_t, 32> hash;
+        SHA256 sha;
+        sha.update(str.data(), str.size());
+        sha.finish();
+        sha.get_hash(hash.data());
 
-    // Load the image
-    Image image;
-    if (!image.load(argv[2])) {
-        std::cout << "Failed to load image " << argv[2] << std::endl;
-        return -1;
+        return hash;
+    };
+
+    // Encode command
+    if (program.is_subcommand_used("encode")) {
+        auto input_path  = encode_command.get<std::string>("--input");
+        auto output_path = encode_command.get<std::string>("--output");
+        auto embed_path  = encode_command.get<std::string>("--embed");
+
+        // Attempt to load the image
+        Image image;
+        if (!image.load(input_path)) {
+            std::cout << "Failed to load image " << input_path << std::endl;
+            return -1;
+        }
+
+        // Generate the password hash
+        auto password = generate_password(encode_command);
+
+        // Encode the image
+        if (encode(image, password, embed_path, output_path, LEVEL) < 0)
+            return -1;
     }
 
-    // Get the password string
-    std::string password_str;
-    std::cout << "Password: ";
-    std::cin >> password_str;
+    // Decode command
+    else if (program.is_subcommand_used("decode")) {
+        auto input_path  = decode_command.get<std::string>("--input");
+        auto output_path = decode_command.get<std::string>("--output");
 
-    // Generate the password hash
-    std::array<std::uint8_t, 32> password;
+        // Attempt to load the image
+        Image image;
+        if (!image.load(input_path)) {
+            std::cout << "Failed to load image " << input_path << std::endl;
+            return -1;
+        }
 
-    SHA256 sha;
-    sha.update(password_str.data(), password_str.size());
-    sha.finish();
-    sha.get_hash(password.data());
+        // Generate the password hash
+        auto password = generate_password(decode_command);
 
-    // Encode
-    if (mode == "encode" && argc == 4) {
-        if (encode(image, password, argv[3], LEVEL) < 0)
-            return 1;
+        // Decode the image
+        if (decode(image, password, output_path) < 0)
+            return -1;
     }
 
-    // Decode
-    else if (mode == "decode" && argc == 3) {
-        if (decode(image, password) < 0)
-            return 1;
-    }
-
+    // No subcommands were given
     else {
-        usage(argv[0]);
-        return -1;
+        std::cerr << program << std::endl;
     }
 
     return 0;
