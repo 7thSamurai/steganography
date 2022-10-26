@@ -2,6 +2,10 @@
 
 #include <cstdint>
 
+#if defined(__APPLE__)
+#include <cstddef>
+#endif
+
 class CRC32
 {
 public:
