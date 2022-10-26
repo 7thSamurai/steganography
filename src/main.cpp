@@ -2,18 +2,15 @@
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
-#include <cassert>
-#include <cstring>
 #include <array>
 
+#include "argparse/argparse.hpp"
 #include "aes.hpp"
 #include "sha256.hpp"
 #include "crc32.hpp"
 #include "random.hpp"
 #include "image.hpp"
 #include "utils.hpp"
-
-#include "argparse/argparse.hpp"
 
 #define VERSION 1
 #define KEY_ROUNDS 20000
@@ -106,7 +103,7 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     header.hash   = crc.get_hash();
 
     // Copy the file name to the header
-    std::string name = fs::path(input).filename();
+    auto name = fs::path(input).filename().string();
     if (name.size() > sizeof(header.name)) {
         std::cout << "ERROR: File name '" << name << "' is over 32 characters" << std::endl;
         return -1;

@@ -37,7 +37,6 @@ add_executable(
     src/crc32.cpp
     src/image.cpp
     src/main.cpp
-    src/random.cpp
     src/sha256.cpp
 )
 
