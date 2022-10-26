@@ -1,6 +1,6 @@
 #include "random.hpp"
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 Random::Random() {
     file = fopen("/dev/urandom", "rb");
 }
