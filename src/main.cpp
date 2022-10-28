@@ -71,24 +71,29 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     }
 
     // Read the data
-    auto padded_data = new std::uint8_t[padded_size];
+    auto padded_data = std::make_unique<uint8_t[]>(padded_size);
     file.seekg(0, std::ios::beg);
-    file.read(reinterpret_cast<char*>(padded_data), size);
+    file.read(reinterpret_cast<char*>(padded_data.get()), size);
     file.close();
 
     // Pad the data (#PKCS7)
     std::uint8_t left = padded_size - size;
-    std::fill(padded_data + size, padded_data + size + left, left);
+    std::fill_n(padded_data.get() + size, left, left);
 
     // Pick a random offset inside the image to store the data
     std::uint32_t offset;
     Random random;
-    random.get(&offset, sizeof(offset));
+	if (!random.get(&offset, sizeof(offset)))
+	{
+		std::cout << "Unable to generate random number\n";
+		return -1;
+	}
+
     offset = (offset + Image::encoded_size(sizeof(Header) + 32, Image::EncodingLevel::Low)) % (Image::encoded_size(max_size - padded_size, level));
 
     // Calculate a hash of the data
     CRC32 crc;
-    crc.update(padded_data, size);
+    crc.update(padded_data.get(), size);
 
     std::cout << "* Generated CRC32 checksum" << std::endl;
 
@@ -114,8 +119,11 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 
     // Generate the Salt and IV
     std::uint8_t salt[16], iv[16];
-    random.get(salt, sizeof(salt));
-    random.get(iv,   sizeof(iv));
+	if (!random.get(salt, sizeof salt) || !random.get(iv, sizeof iv))
+	{
+		std::cout << "ERROR: Unable to generate random number\n";
+		return -1;
+	}
 
     // Generate the Key
     std::uint8_t key[32];
@@ -125,20 +133,20 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 
     // Encrypt the header
     AES aes(key, iv);
-    auto encrypted_header = new std::uint8_t[sizeof(header)];
-    aes.cbc_encrypt(&header, sizeof(header), encrypted_header);
+    auto encrypted_header = std::make_unique<uint8_t>(sizeof Header);
+    aes.cbc_encrypt(&header, sizeof(header), encrypted_header.get());
 
     // Encrypt the data
-    auto encrypted_data = new std::uint8_t[padded_size];
-    aes.cbc_encrypt(padded_data, padded_size, encrypted_data);
+    auto encrypted_data = std::make_unique<uint8_t>(padded_size);
+    aes.cbc_encrypt(padded_data.get(), padded_size, encrypted_data.get());
 
     std::cout << "* Encrypted embed with AES-256-CBC" << std::endl;
 
     // Encode the data
     image.encode(salt, 16, level);
     image.encode(iv, 16, level, Image::encoded_size(16, Image::EncodingLevel::Low));
-    image.encode(encrypted_header, sizeof(Header), level, Image::encoded_size(32, Image::EncodingLevel::Low));
-    image.encode(encrypted_data, padded_size, level, offset);
+    image.encode(encrypted_header.get(), sizeof(Header), level, Image::encoded_size(32, Image::EncodingLevel::Low));
+    image.encode(encrypted_data.get(), padded_size, level, offset);
 
     std::cout << "* Embedded " << name << " into image" << std::endl;
 
@@ -148,11 +156,7 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
         return false;
     }
 
-    std::cout << "* Sucessfully wrote to " << output << std::endl;
-
-    delete[] padded_data;
-    delete[] encrypted_data;
-    delete[] encrypted_header;
+    std::cout << "* Successfully wrote to " << output << std::endl;    
 
     return true;
 }
@@ -199,7 +203,7 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password, std::stri
         }
     }
 
-    std::cout << "* Sucessfully decrypted header" << std::endl;
+    std::cout << "* Successfully decrypted header" << std::endl;
     std::cout << "* File signatures match" << std::endl;
 
     // Copy the name, accounting for the fact that there might be no null-terminator

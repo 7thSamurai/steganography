@@ -5,7 +5,8 @@
 #if defined(__linux__) || defined(__APPLE__)
 #elif defined(_WIN32)
 #include <windows.h>
-#include <wincrypt.h>
+#include <bcrypt.h>
+#pragma comment( lib, "Bcrypt" )
 #else
 #error "Unsupported OS"
 #endif
@@ -24,9 +25,9 @@ public:
 			fclose(file);
 	}
 
-	void get(void* data, std::size_t size) {
-
+	bool get(void* data, std::size_t size) {
 		fread(data, size, 1, file);
+		return true;
 	}
 
 private:
@@ -35,45 +36,26 @@ private:
 #elif defined(_WIN32)
 public:
 	Random() {
-		if (!CryptAcquireContext(
-			&hCryptProv,               // handle to the CSP
-			UserName,                  // container name 
-			NULL,                      // use the default provider
-			PROV_RSA_FULL,             // provider type
-			0))                        // flag values
-		{
-			if (GetLastError() == NTE_BAD_KEYSET)
-			{
-				if (CryptAcquireContext(
-					&hCryptProv,
-					UserName,
-					NULL,
-					PROV_RSA_FULL,
-					CRYPT_NEWKEYSET))
-				{
-					printf("A new key container has been created.\n");
-				}
-				else
-				{
-					printf("Could not create a new key container.\n");
-					exit(1);
-				}
-			}
-			else
-			{
-				printf("A cryptographic service handle could not be "
-					"acquired.\n");
-				exit(1);
-			}			
-		}
-	}
-~Random() {
-	CryptReleaseContext(hCryptProv, 0);
-}
 
-void get(void* data, std::size_t size) {
-	CryptGenRandom(hCryptProv, size, (BYTE*)data);
-}
+	}
+	~Random() {
+		
+	}
+
+	bool get(void* data, std::size_t size) {
+		auto status = BCryptGenRandom(
+			NULL,
+			(BYTE*)data,
+			size,
+			BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+
+		if (!BCRYPT_SUCCESS(status))
+		{
+			std::cerr << "Unable to generate random number\n";
+			return false;
+		}
+		return true;		
+	}
 
 private:
 	HCRYPTPROV hCryptProv = NULL;
