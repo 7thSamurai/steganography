@@ -17,40 +17,40 @@ class Random
 
 #if defined(__linux__) || defined(__APPLE__)
 public:
-	Random() {
-		file = fopen("/dev/urandom", "rb");
-	}
-	~Random() {
-		if (file)
-			fclose(file);
-	}
+    Random() {
+        file = fopen("/dev/urandom", "rb");
+    }
+    ~Random() {
+        if (file)
+            fclose(file);
+    }
 
-	bool get(void* data, std::size_t size) {
-		return fread(data, size, 1, file) == size;
-	}
+    bool get(void* data, std::size_t size) {
+        return fread(data, size, 1, file) == size;
+    }
 
 private:
-	FILE* file;
+    FILE* file;
 
 #elif defined(_WIN32)
 public:
-	Random()  = default;
-	~Random() = default;
+    Random()  = default;
+    ~Random() = default;
 
-	bool get(void* data, std::size_t size) {
-		auto status = BCryptGenRandom(
-			NULL,
-			(BYTE*)data,
-			size,
-			BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    bool get(void* data, std::size_t size) {
+        auto status = BCryptGenRandom(
+            NULL,
+            (BYTE*)data,
+            size,
+            BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 
-		if (!BCRYPT_SUCCESS(status))
-		{
-			std::cerr << "ERROR: Unable to generate random number" << std::endl;
-			return false;
-		}
-		return true;
-	}
+        if (!BCRYPT_SUCCESS(status))
+        {
+            std::cerr << "ERROR: Unable to generate random number" << std::endl;
+            return false;
+        }
+        return true;
+    }
 
 #else
 #error "Unsupported OS"
