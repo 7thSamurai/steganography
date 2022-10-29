@@ -133,7 +133,7 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 
     // Encrypt the header
     AES aes(key, iv);
-    auto encrypted_header = std::make_unique<uint8_t[]>(sizeof Header);
+    auto encrypted_header = std::make_unique<uint8_t[]>(sizeof header);
     aes.cbc_encrypt(&header, sizeof(header), encrypted_header.get());
 
     // Encrypt the data
