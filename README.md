@@ -1,7 +1,7 @@
 # Image Steganography Tool
 
 Simple C++ **Encryption** and **Steganography** tool that uses Password-Protected-Encryption to secure a file's contents, and then proceeds to embed it 
-insde an image's pixel-data using Least-Significant-Bit encoding. For Linux based systems.
+insde an image's pixel-data using Least-Significant-Bit encoding. For Linux, MacOS, and Windows systems.
 
 ## Encoding
 
