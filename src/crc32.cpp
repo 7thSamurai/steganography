@@ -70,10 +70,10 @@ static const std::uint32_t crc_table[256] = {
 CRC32::CRC32() : hash(0xFFFFFFFF) {
 }
 
-void CRC32::update(const void *data, size_t size) {
+void CRC32::update(const void *data, std::size_t size) {
     auto buffer = reinterpret_cast<const std::uint8_t*>(data);
 
-    for (size_t i = 0; i < size; i++) {
+    for (std::size_t i = 0; i < size; i++) {
         hash = crc_table[(hash ^ buffer[i]) & 0xFF] ^ (hash >> 8);
     }
 }
