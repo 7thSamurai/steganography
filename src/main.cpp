@@ -2,18 +2,15 @@
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
-#include <cassert>
-#include <cstring>
 #include <array>
 
+#include "argparse/argparse.hpp"
 #include "aes.hpp"
 #include "sha256.hpp"
 #include "crc32.hpp"
 #include "random.hpp"
 #include "image.hpp"
 #include "utils.hpp"
-
-#include "argparse/argparse.hpp"
 
 #define VERSION 1
 #define KEY_ROUNDS 20000
@@ -47,7 +44,7 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     // Open the data file
     std::ifstream file(input, std::ios::in | std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        std::cout << "ERROR: Unable to open file '" << input << "'" << std::endl;
+        std::cerr << "ERROR: Unable to open file '" << input << "'" << std::endl;
         return -1;
     }
 
@@ -69,29 +66,34 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 
     // Make sure that it isn't too big
     if (padded_size > max_size) {
-        std::cout << "ERROR: Data-File too big, maximum possible size: " << (max_size / 1024) << " KiB" << std::endl;
+        std::cerr << "ERROR: Data-File too big, maximum possible size: " << (max_size / 1024) << " KiB" << std::endl;
         return -1;
     }
 
     // Read the data
-    auto padded_data = new std::uint8_t[padded_size];
+    auto padded_data = std::make_unique<uint8_t[]>(padded_size);
     file.seekg(0, std::ios::beg);
-    file.read(reinterpret_cast<char*>(padded_data), size);
+    file.read(reinterpret_cast<char*>(padded_data.get()), size);
     file.close();
 
     // Pad the data (#PKCS7)
     std::uint8_t left = padded_size - size;
-    std::fill(padded_data + size, padded_data + size + left, left);
+    std::fill_n(padded_data.get() + size, left, left);
 
     // Pick a random offset inside the image to store the data
     std::uint32_t offset;
     Random random;
-    random.get(&offset, sizeof(offset));
+    if (!random.get(&offset, sizeof(offset)))
+    {
+        std::cerr << "Unable to generate random number" << std::endl;
+        return -1;
+    }
+
     offset = (offset + Image::encoded_size(sizeof(Header) + 32, Image::EncodingLevel::Low)) % (Image::encoded_size(max_size - padded_size, level));
 
     // Calculate a hash of the data
     CRC32 crc;
-    crc.update(padded_data, size);
+    crc.update(padded_data.get(), size);
 
     std::cout << "* Generated CRC32 checksum" << std::endl;
 
@@ -106,9 +108,9 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
     header.hash   = crc.get_hash();
 
     // Copy the file name to the header
-    std::string name = fs::path(input).filename();
+    auto name = fs::path(input).filename().string();
     if (name.size() > sizeof(header.name)) {
-        std::cout << "ERROR: File name '" << name << "' is over 32 characters" << std::endl;
+        std::cerr << "ERROR: File name '" << name << "' is over 32 characters" << std::endl;
         return -1;
     }
     std::copy_n(name.data(), name.size(), header.name);
@@ -117,8 +119,11 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 
     // Generate the Salt and IV
     std::uint8_t salt[16], iv[16];
-    random.get(salt, sizeof(salt));
-    random.get(iv,   sizeof(iv));
+    if (!random.get(salt, sizeof salt) || !random.get(iv, sizeof iv))
+    {
+        std::cerr << "ERROR: Unable to generate random number" << std::endl;
+        return -1;
+    }
 
     // Generate the Key
     std::uint8_t key[32];
@@ -128,20 +133,20 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
 
     // Encrypt the header
     AES aes(key, iv);
-    auto encrypted_header = new std::uint8_t[sizeof(header)];
-    aes.cbc_encrypt(&header, sizeof(header), encrypted_header);
+    auto encrypted_header = std::make_unique<uint8_t[]>(sizeof Header);
+    aes.cbc_encrypt(&header, sizeof(header), encrypted_header.get());
 
     // Encrypt the data
-    auto encrypted_data = new std::uint8_t[padded_size];
-    aes.cbc_encrypt(padded_data, padded_size, encrypted_data);
+    auto encrypted_data = std::make_unique<uint8_t[]>(padded_size);
+    aes.cbc_encrypt(padded_data.get(), padded_size, encrypted_data.get());
 
     std::cout << "* Encrypted embed with AES-256-CBC" << std::endl;
 
     // Encode the data
     image.encode(salt, 16, level);
     image.encode(iv, 16, level, Image::encoded_size(16, Image::EncodingLevel::Low));
-    image.encode(encrypted_header, sizeof(Header), level, Image::encoded_size(32, Image::EncodingLevel::Low));
-    image.encode(encrypted_data, padded_size, level, offset);
+    image.encode(encrypted_header.get(), sizeof(Header), level, Image::encoded_size(32, Image::EncodingLevel::Low));
+    image.encode(encrypted_data.get(), padded_size, level, offset);
 
     std::cout << "* Embedded " << name << " into image" << std::endl;
 
@@ -151,11 +156,7 @@ int encode(Image &image, const std::array<std::uint8_t, 32> &password, const std
         return false;
     }
 
-    std::cout << "* Sucessfully wrote to " << output << std::endl;
-
-    delete[] padded_data;
-    delete[] encrypted_data;
-    delete[] encrypted_header;
+    std::cout << "* Successfully wrote to " << output << std::endl;    
 
     return true;
 }
@@ -184,25 +185,25 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password, std::stri
 
     // Make sure that the file-signature match, i.e. successful decryption
     if (header.sig[0] != 'H' || header.sig[1] != 'I' || header.sig[2] != 'D' || header.sig[3] != 'E') {
-        std::cout << "ERROR: Decryption failed, invalid key or corrupt file" << std::endl;
+        std::cerr << "ERROR: Decryption failed, invalid key or corrupt file" << std::endl;
         return -1;
     }
 
     // Make sure that the version is correct
     if (header.version != VERSION) {
-        std::cout << "ERROR: Unsupported file-version " << header.version << std::endl;
+        std::cerr << "ERROR: Unsupported file-version " << header.version << std::endl;
         return -1;
     }
 
     // Make sure that the reserved data is all zeros
     for (auto r : header.reserved) {
         if (r) {
-            std::cout << "ERROR: Decryption failed, invalid key or corrupt file" << std::endl;
+            std::cerr << "ERROR: Decryption failed, invalid key or corrupt file" << std::endl;
             return -1;
         }
     }
 
-    std::cout << "* Sucessfully decrypted header" << std::endl;
+    std::cout << "* Successfully decrypted header" << std::endl;
     std::cout << "* File signatures match" << std::endl;
 
     // Copy the name, accounting for the fact that there might be no null-terminator
@@ -238,7 +239,7 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password, std::stri
 
     // Make sure that the data matches
     if (crc.get_hash() != header.hash) {
-        std::cout << "ERROR: File is corrupted!" << std::endl;
+        std::cerr << "ERROR: File is corrupted!" << std::endl;
         return -1;
     }
 
@@ -251,7 +252,7 @@ int decode(Image &image, const std::array<std::uint8_t, 32> &password, std::stri
     // Open the output file
     std::ofstream file(output, std::ios::out | std::ios::binary);
     if (!file.is_open()) {
-        std::cout << "ERROR: Unable to save file '" << output << "'" << std::endl;
+        std::cerr << "ERROR: Unable to save file '" << output << "'" << std::endl;
         return -1;
     }
 
@@ -349,7 +350,7 @@ int main(int argc, char **argv) {
         // Attempt to load the image
         Image image;
         if (!image.load(input_path)) {
-            std::cout << "Failed to load image " << input_path << std::endl;
+            std::cerr << "ERROR: Failed to load image " << input_path << std::endl;
             return -1;
         }
 
@@ -369,7 +370,7 @@ int main(int argc, char **argv) {
         // Attempt to load the image
         Image image;
         if (!image.load(input_path)) {
-            std::cout << "Failed to load image " << input_path << std::endl;
+            std::cerr << "ERROR: Failed to load image " << input_path << std::endl;
             return -1;
         }
 
