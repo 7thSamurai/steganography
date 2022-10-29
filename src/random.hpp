@@ -26,8 +26,7 @@ public:
 	}
 
 	bool get(void* data, std::size_t size) {
-		fread(data, size, 1, file);
-		return true;
+		return fread(data, size, 1, file) == size;
 	}
 
 private:
@@ -35,12 +34,8 @@ private:
 
 #elif defined(_WIN32)
 public:
-	Random() {
-
-	}
-	~Random() {
-		
-	}
+	Random()  = default;
+	~Random() = default;
 
 	bool get(void* data, std::size_t size) {
 		auto status = BCryptGenRandom(
@@ -51,15 +46,11 @@ public:
 
 		if (!BCRYPT_SUCCESS(status))
 		{
-			std::cerr << "Unable to generate random number\n";
+			std::cerr << "ERROR: Unable to generate random number" << std::endl;
 			return false;
 		}
-		return true;		
+		return true;
 	}
-
-private:
-	HCRYPTPROV hCryptProv = NULL;
-	LPCSTR UserName = "MyKeyContainer";
 
 #else
 #error "Unsupported OS"
