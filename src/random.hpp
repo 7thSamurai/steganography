@@ -26,7 +26,7 @@ public:
     }
 
     bool get(void* data, std::size_t size) {
-        return fread(data, size, 1, file) == size;
+        return fread(data, 1, size, file) == size;
     }
 
 private:
