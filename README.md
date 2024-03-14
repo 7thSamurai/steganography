@@ -1,7 +1,7 @@
 # Image Steganography Tool
 
 Simple C++ **Encryption** and **Steganography** tool that uses Password-Protected-Encryption to secure a file's contents, and then proceeds to embed it 
-insde an image's pixel-data using Least-Significant-Bit encoding. For Linux, MacOS, and Windows systems.
+inside an image's pixel-data using Least-Significant-Bit encoding. For Linux, MacOS, and Windows systems.
 
 ## Encoding
 
@@ -52,6 +52,16 @@ Password: 1234
 $ mkdir build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release ..
+$ make -j 4
+```
+
+Building for Windows (cross-compiling to Windows on Linux) simply
+add `-DWINDOWS=1` for cmake:
+
+```
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release -DWINDOWS=1 ..
 $ make -j 4
 ```
 

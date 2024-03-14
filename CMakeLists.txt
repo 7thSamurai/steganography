@@ -45,3 +45,26 @@ target_link_libraries(
     stb
     zlib
 )
+
+string(ASCII 27 Esc)
+set(ColourReset "${Esc}[m")
+set(Green       "${Esc}[32m")
+
+# prepare cross-compiling to Windows: cmake -DWINDOWS=1
+if(DEFINED WINDOWS)
+    set(CMAKE_SYSTEM_NAME Windows)
+    set(CMAKE_C_COMPILER   x86_64-w64-mingw32-gcc)
+    set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-c++)
+    target_link_options(
+        steganography PUBLIC
+            -static
+    )
+    target_link_libraries(
+        steganography
+            bcrypt
+    )
+    message("${Green}Configured build for cross-compiling to Windows.${ColourReset}")
+    set(ignoreMe "${WINDOWS}")
+else()
+    message("${Green}Defaulting to Linux build.${ColourReset}")
+endif()
