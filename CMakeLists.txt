@@ -31,17 +31,25 @@ add_library(
 SET(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_STANDARD_REQUIRED On)
 
+add_library(
+    steganography_lib STATIC
+        src/aes.cpp
+	src/crc32.cpp
+	src/image.cpp
+	src/sha256.cpp
+)
+
+# resolve name conflict for lib and exe in cmake
+set_property(TARGET steganography_lib PROPERTY OUTPUT_NAME steganography)
+
 add_executable(
     steganography
-    src/aes.cpp
-    src/crc32.cpp
-    src/image.cpp
     src/main.cpp
-    src/sha256.cpp
 )
 
 target_link_libraries(
     steganography
+    steganography_lib
     stb
     zlib
 )
