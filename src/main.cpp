@@ -329,7 +329,7 @@ int main(int argc, char **argv) {
         }
         else {
             std::cout << "Password: ";
-            std::cin >> str;
+            std::getline(std::cin, str);
         }
 
         // Generate the password hash
