@@ -1,7 +1,7 @@
 # Image Steganography Tool
 
 Simple C++ **Encryption** and **Steganography** tool that uses Password-Protected-Encryption to secure a file's contents, and then proceeds to embed it 
-insde an image's pixel-data using Least-Significant-Bit encoding. For Linux, MacOS, and Windows systems.
+inside an image's pixel-data using Least-Significant-Bit encoding. For Linux, MacOS, and Windows systems.
 
 ## Encoding
 
@@ -17,14 +17,14 @@ Password: 1234
 * Generated encryption key with PBKDF2-HMAC-SHA-256 (20000 rounds)
 * Encrypted embed with AES-256-CBC
 * Embedded jekyll_and_hyde.zip into image
-* Sucessfully wrote to output.png
+* Successfully wrote to output.png
 ```
 
 Original image:
 
 ![Original image](data/orig.png)
 
-Image with embedded ZIP containg the entire contents of the book "Dr Jekyll and Mr Hyde":
+Image with embedded ZIP containing the entire contents of the book "Dr Jekyll and Mr Hyde":
 
 ![Image with embed](data/output.png)
 
@@ -35,7 +35,7 @@ $ ./steganography decode -i output.png -o "out - jekyll_and_hyde.zip"
 Password: 1234
 * Image size: 640x426 pixels
 * Generated decryption key with PBKDF2-HMAC-SHA-256 (20000 rounds)
-* Sucessfully decrypted header
+* Successfully decrypted header
 * File signatures match
 * Detected embed jekyll_and_hyde.zip
 * Encoding level: Low (Default)
